@@ -206,7 +206,23 @@
         minZoom: 0.5, // 最小缩放比例
         maxZoom: 2, // 最大缩放比例
       });
-
+      
+      // 点击查看节点信息
+      cy.on("tap", "node", function (event) {
+        var node = event.target;
+        var nodeInfo = document.getElementById("nodeInfo");
+        nodeInfo.innerHTML = `
+          <strong>节点ID:</strong> ${node.id()}<br>
+          <strong>节点标签:</strong> ${node.data("label")}<br>
+          <strong>带宽:</strong> ${Math.floor(Math.random() * 100)} Mbps<br>
+          <strong>流表:</strong>
+          <ul>
+              <li>Match IP: 192.168.1.1, Action: Forward</li>
+              <li>Match IP: 10.0.0.1, Action: Drop</li>
+          </ul>
+        `;
+      });
+      
       function generateAlert() {
         var alertList = document.getElementById("alertList");
         var alertItem = document.createElement("li");
