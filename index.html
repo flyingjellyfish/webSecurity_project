@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Defense System</title>
+    <!-- 引入 Cytoscape.js 库 -->
+    <script src="https://unpkg.com/cytoscape@3.19.0/dist/cytoscape.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+      /* 样式 */
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: rgb(227, 251, 243);
+      }
+      h1 {
+        text-align: center;
+        margin: 20px;
+      }
+      #cy {
+        width: 800px;
+        height: 400px;
+        border: 1px solid #ddd;
+        margin-bottom: 20px;
+      }
+      #nodeDetails,
+      #alerts,
+      #addNode,
+      #deleteNode {
+        width: 800px;
+        margin-bottom: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        background: #f9f9f9;
+      }
+      input[type="text"],
+      button {
+        margin: 5px 0;
+        padding: 5px;
+      }
+      label {
+        display: inline-block;
+        width: 120px;
+      }
+      .action-section {
+        display: flex;
+        flex-direction: column;
+      }
+      #logo {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 200px;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <img
+      id="logo"
+      src="./Fuzhou_University_logo.png"
+      alt="Fuzhou University Logo"
+    />
+    <h1 style="color: red">多层次异常拟态防御系统</h1>
+    <div id="cy"></div>
+
+    <div id="nodeDetails">
+      <h3>节点信息检测：</h3>
+      <p id="nodeInfo">点击节点可以查看当前节点状态信息</p>
+    </div>
+
+    <div id="alerts">
+      <h3>警报：</h3>
+      <ul id="alertList"></ul>
+    </div>
+
+    <!-- 新增节点的模块 -->
+    <div id="addNode">
+      <h3>添加新节点</h3>
+      <div class="action-section">
+        <label for="nodeId">节点ID：</label>
+        <input type="text" id="nodeId" placeholder="请输入节点ID" />
+        <label for="nodeLabel">节点标签：</label>
+        <input type="text" id="nodeLabel" placeholder="请输入节点标签" />
+        <label for="connectedNode">相连节点ID：</label>
+        <input type="text" id="connectedNode" placeholder="请输入相连节点ID" />
+        <button onclick="addNode()">添加节点</button>
+      </div>
+    </div>
+
+    <!-- 删除节点的模块 -->
+    <div id="deleteNode">
+      <h3>删除节点</h3>
+      <div class="action-section">
+        <label for="deleteNodeId">节点ID：</label>
+        <input
+          type="text"
+          id="deleteNodeId"
+          placeholder="请输入要删除的节点ID"
+        />
+        <button onclick="deleteNode()">删除节点</button>
+      </div>
+    </div>
+
+    <script>
+      // 初始化 Cytoscape 节点
+      var cy = cytoscape({
+        container: document.getElementById("cy"),
+        elements: [
+          { data: { id: "h1", label: "路由器 1" } },
+          { data: { id: "h2", label: "路由器 2" } },
+          { data: { id: "h3", label: "路由器 3" } },
+          { data: { id: "s2", label: "交换机 2" } },
+          { data: { id: "s1", label: "交换机 1" } },
+          { data: { id: "h4", label: "路由器 4" } },
+          { data: { id: "h5", label: "路由器 5" } },
+          { data: { id: "h6", label: "路由器 6" } },
+          { data: { source: "h1", target: "s1" } },
+          { data: { source: "h2", target: "s1" } },
+          { data: { source: "h3", target: "s1" } },
+          { data: { source: "h4", target: "s2" } },
+          { data: { source: "h5", target: "s2" } },
+          { data: { source: "h6", target: "s2" } },
+          { data: { source: "s1", target: "s2" } },
+        ],
+        style: [
+          {
+            selector: "node",
+            style: {
+              "background-color": "#007bff",
+              label: "data(label)",
+              "text-valign": "center",
+              color: "#fff",
+              "text-outline-width": 2,
+              "text-outline-color": "#007bff",
+            },
+          },
+          {
+            selector: "edge",
+            style: {
+              "line-color": "#ddd",
+              "target-arrow-color": "#ddd",
+              "target-arrow-shape": "triangle",
+              "curve-style": "bezier",
+            },
+          },
+        ],
+        layout: { name: "grid" },
+        minZoom: 0.5, // 最小缩放比例
+        maxZoom: 2, // 最大缩放比例
+      });
+
+      // 点击查看节点信息
+      cy.on("tap", "node", function (event) {
+        var node = event.target;
+        var nodeInfo = document.getElementById("nodeInfo");
+        nodeInfo.innerHTML = `
+          <strong>节点ID:</strong> ${node.id()}<br>
+          <strong>节点标签:</strong> ${node.data("label")}<br>
+          <strong>带宽:</strong> ${Math.floor(Math.random() * 100)} Mbps<br>
+          <strong>流表:</strong>
+          <ul>
+              <li>Match IP: 192.168.1.1, Action: Forward</li>
+              <li>Match IP: 10.0.0.1, Action: Drop</li>
+          </ul>
+        `;
+      });
+
+      // 告警信息
+      function generateAlert() {
+        var alertList = document.getElementById("alertList");
+        var alertItem = document.createElement("li");
+        var nodes = ["A", "B", "C"];
+        var node = nodes[Math.floor(Math.random() * nodes.length)];
+        alertItem.textContent = `错误报告： ${node}`;
+        alertList.appendChild(alertItem);
+        // 限制告警条数
+        if (alertList.children.length > 5) {
+          alertList.removeChild(alertList.children[0]);
+        }
+      }
+
+      // 定时生成告警信息
+      setInterval(generateAlert, 5000);
+
+      // 添加新节点的函数
+      function addNode() {
+        var nodeId = document.getElementById("nodeId").value.trim();
+        var nodeLabel = document.getElementById("nodeLabel").value.trim();
+        var connectedNodeId = document
+          .getElementById("connectedNode")
+          .value.trim();
+
+        // 检查输入是否完整
+        if (!nodeId || !nodeLabel || !connectedNodeId) {
+          alert("请完整填写节点ID、标签和相连节点ID！");
+          return;
+        }
+
+        // 检查节点是否已存在
+        if (cy.getElementById(nodeId).length > 0) {
+          alert("节点ID已存在，请使用不同的ID！");
+          return;
+        }
+
+        // 检查相连节点是否存在
+        if (cy.getElementById(connectedNodeId).length === 0) {
+          alert("相连节点ID不存在，请检查后再试！");
+          return;
+        }
+
+        // 添加节点和连接
+        cy.add([
+          { data: { id: nodeId, label: nodeLabel } },
+          { data: { source: nodeId, target: connectedNodeId } },
+        ]);
+
+        // 更新布局
+        cy.layout({ name: "grid" }).run();
+
+        // 清空输入框
+        document.getElementById("nodeId").value = "";
+        document.getElementById("nodeLabel").value = "";
+        document.getElementById("connectedNode").value = "";
+
+        alert("节点已成功添加！");
+      }
+
+      // 删除节点的函数
+      function deleteNode() {
+        var deleteNodeId = document.getElementById("deleteNodeId").value.trim();
+
+        // 检查输入是否完整
+        if (!deleteNodeId) {
+          alert("请填写要删除的节点ID！");
+          return;
+        }
+
+        var nodeToDelete = cy.getElementById(deleteNodeId);
+
+        // 检查节点是否存在
+        if (nodeToDelete.length === 0) {
+          alert("节点ID不存在，请检查后再试！");
+          return;
+        }
+
+        // 删除节点及其相关连接
+        cy.remove(nodeToDelete);
+
+        // 更新布局
+        cy.layout({ name: "grid" }).run();
+
+        // 清空输入框
+        document.getElementById("deleteNodeId").value = "";
+
+        alert("节点已成功删除！");
+      }
+    </script>
+  </body>
+</html>
