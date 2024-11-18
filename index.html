@@ -7,6 +7,54 @@
     <!-- 引入 Cytoscape.js 库 -->
     <script src="https://unpkg.com/cytoscape@3.19.0/dist/cytoscape.min.js"></script>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script>
+      const socket = io.connect("http://localhost:5000");
+
+      socket.on("topology_update", (data) => {
+        console.log("Received topology update:", data);
+        // 清空现有拓扑
+        nodes.clear();
+        edges.clear();
+
+        // 添加主机和交换机
+        data.hosts.forEach((host) => {
+          nodes.add({
+            id: host.name,
+            label: `${host.name}\n${host.ip}`,
+            group: "host",
+          });
+        });
+        data.switches.forEach((sw) => {
+          nodes.add({ id: sw.name, label: sw.name, group: "switch" });
+        });
+
+        // 添加连接
+        data.links.forEach((link) => {
+          edges.add({ from: link.node1, to: link.node2 });
+        });
+
+        const options = {
+          nodes: {
+            shape: "dot",
+            size: 30,
+            font: {
+              size: 14,
+              color: "#000",
+            },
+          },
+          groups: {
+            host: { color: { background: "#87CEEB" }, shape: "ellipse" },
+            switch: { color: { background: "#FF7F50" }, shape: "box" },
+          },
+          edges: {
+            color: "#808080",
+            arrows: {
+              to: { enabled: false },
+            },
+          },
+        };
+      });
+    </script>
     <style>
       /* 样式 */
       body {
@@ -66,6 +114,7 @@
       src="./Fuzhou_University_logo.png"
       alt="Fuzhou University Logo"
     />
+
     <h1 style="color: red">多层次异常拟态防御系统</h1>
     <div id="cy"></div>
 
@@ -77,6 +126,10 @@
     <div id="alerts">
       <h3>警报：</h3>
       <ul id="alertList"></ul>
+      <div id="resolutionStatus">
+        <h4>异常解决状态：</h4>
+        <p id="statusMessage">暂无状态信息</p>
+      </div>
     </div>
 
     <!-- 新增节点的模块 -->
@@ -108,7 +161,6 @@
     </div>
 
     <script>
-      // 初始化 Cytoscape 节点
       var cy = cytoscape({
         container: document.getElementById("cy"),
         elements: [
@@ -155,23 +207,6 @@
         maxZoom: 2, // 最大缩放比例
       });
 
-      // 点击查看节点信息
-      cy.on("tap", "node", function (event) {
-        var node = event.target;
-        var nodeInfo = document.getElementById("nodeInfo");
-        nodeInfo.innerHTML = `
-          <strong>节点ID:</strong> ${node.id()}<br>
-          <strong>节点标签:</strong> ${node.data("label")}<br>
-          <strong>带宽:</strong> ${Math.floor(Math.random() * 100)} Mbps<br>
-          <strong>流表:</strong>
-          <ul>
-              <li>Match IP: 192.168.1.1, Action: Forward</li>
-              <li>Match IP: 10.0.0.1, Action: Drop</li>
-          </ul>
-        `;
-      });
-
-      // 告警信息
       function generateAlert() {
         var alertList = document.getElementById("alertList");
         var alertItem = document.createElement("li");
@@ -179,87 +214,28 @@
         var node = nodes[Math.floor(Math.random() * nodes.length)];
         alertItem.textContent = `错误报告： ${node}`;
         alertList.appendChild(alertItem);
-        // 限制告警条数
+
         if (alertList.children.length > 5) {
           alertList.removeChild(alertList.children[0]);
         }
+
+        resolveAnomaly(node);
       }
 
-      // 定时生成告警信息
-      setInterval(generateAlert, 5000);
+      function resolveAnomaly(node) {
+        var statusMessage = document.getElementById("statusMessage");
 
-      // 添加新节点的函数
-      function addNode() {
-        var nodeId = document.getElementById("nodeId").value.trim();
-        var nodeLabel = document.getElementById("nodeLabel").value.trim();
-        var connectedNodeId = document
-          .getElementById("connectedNode")
-          .value.trim();
-
-        // 检查输入是否完整
-        if (!nodeId || !nodeLabel || !connectedNodeId) {
-          alert("请完整填写节点ID、标签和相连节点ID！");
-          return;
+        var isSuccess = 1;
+        if (isSuccess) {
+          statusMessage.innerHTML = `异常解决成功：节点 ${node} 已解决。`;
+          statusMessage.style.color = "green";
+        } else {
+          statusMessage.innerHTML = `异常解决失败：节点 ${node} 解决失败。`;
+          statusMessage.style.color = "red";
         }
-
-        // 检查节点是否已存在
-        if (cy.getElementById(nodeId).length > 0) {
-          alert("节点ID已存在，请使用不同的ID！");
-          return;
-        }
-
-        // 检查相连节点是否存在
-        if (cy.getElementById(connectedNodeId).length === 0) {
-          alert("相连节点ID不存在，请检查后再试！");
-          return;
-        }
-
-        // 添加节点和连接
-        cy.add([
-          { data: { id: nodeId, label: nodeLabel } },
-          { data: { source: nodeId, target: connectedNodeId } },
-        ]);
-
-        // 更新布局
-        cy.layout({ name: "grid" }).run();
-
-        // 清空输入框
-        document.getElementById("nodeId").value = "";
-        document.getElementById("nodeLabel").value = "";
-        document.getElementById("connectedNode").value = "";
-
-        alert("节点已成功添加！");
       }
 
-      // 删除节点的函数
-      function deleteNode() {
-        var deleteNodeId = document.getElementById("deleteNodeId").value.trim();
-
-        // 检查输入是否完整
-        if (!deleteNodeId) {
-          alert("请填写要删除的节点ID！");
-          return;
-        }
-
-        var nodeToDelete = cy.getElementById(deleteNodeId);
-
-        // 检查节点是否存在
-        if (nodeToDelete.length === 0) {
-          alert("节点ID不存在，请检查后再试！");
-          return;
-        }
-
-        // 删除节点及其相关连接
-        cy.remove(nodeToDelete);
-
-        // 更新布局
-        cy.layout({ name: "grid" }).run();
-
-        // 清空输入框
-        document.getElementById("deleteNodeId").value = "";
-
-        alert("节点已成功删除！");
-      }
+      setInterval(generateAlert, 7000);
     </script>
   </body>
 </html>
