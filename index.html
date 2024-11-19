@@ -54,6 +54,51 @@
           },
         };
       });
+
+      // 获取最新统计数据
+      function fetchStats() {
+        fetch("http://localhost:5000/api/stats")
+          .then((response) => response.json())
+          .then((data) => {
+            // 处理交换机数据
+            Object.entries(data.switches).forEach(([switchId, switchInfo]) => {
+              console.log(`Switch ${switchId}:`, switchInfo);
+              // 处理端口数据
+              Object.entries(switchInfo.ports).forEach(([portId, portInfo]) => {
+                console.log(`Port ${portId}:`, portInfo);
+              });
+            });
+
+            // 处理异常数据
+            data.anomalies.forEach((anomaly) => {
+              console.log(
+                `Anomaly on ${anomaly.switch} port ${anomaly.port}:`,
+                anomaly.anomalies.map((a) => a.message)
+              );
+            });
+          })
+          .catch((error) => console.error("Error fetching stats:", error));
+      }
+
+      // 获取日志记录
+      function fetchLogs() {
+        fetch("http://localhost:5000/api/logs")
+          .then((response) => response.json())
+          .then((data) => {
+            data.logs.forEach((log) => {
+              console.log(
+                `[${log.level}] ${new Date(
+                  log.timestamp * 1000
+                ).toLocaleString()}:`,
+                log.data
+              );
+            });
+          })
+          .catch((error) => console.error("Error fetching logs:", error));
+      }
+
+      // 定期更新数据
+      setInterval(fetchStats, 5000); // 每5秒更新一次
     </script>
     <style>
       /* 样式 */
@@ -165,20 +210,22 @@
         container: document.getElementById("cy"),
         elements: [
           { data: { id: "h1", label: "路由器 1" } },
-          { data: { id: "h2", label: "路由器 2" } },
-          { data: { id: "h3", label: "路由器 3" } },
-          { data: { id: "s2", label: "交换机 2" } },
           { data: { id: "s1", label: "交换机 1" } },
-          { data: { id: "h4", label: "路由器 4" } },
-          { data: { id: "h5", label: "路由器 5" } },
-          { data: { id: "h6", label: "路由器 6" } },
+          { data: { id: "s2", label: "交换机 2" } },
+          { data: { id: "s3", label: "交换机 3" } },
+          { data: { id: "s4", label: "交换机 4" } },
+          { data: { id: "s5", label: "交换机 5" } },
+          { data: { id: "s6", label: "交换机 6" } },
+          { data: { id: "h3", label: "路由器 3" } },
+          { data: { id: "h2", label: "路由器 2" } },
           { data: { source: "h1", target: "s1" } },
-          { data: { source: "h2", target: "s1" } },
-          { data: { source: "h3", target: "s1" } },
-          { data: { source: "h4", target: "s2" } },
-          { data: { source: "h5", target: "s2" } },
-          { data: { source: "h6", target: "s2" } },
           { data: { source: "s1", target: "s2" } },
+          { data: { source: "s2", target: "s3" } },
+          { data: { source: "s3", target: "s4" } },
+          { data: { source: "s4", target: "s5" } },
+          { data: { source: "s5", target: "s6" } },
+          { data: { source: "h2", target: "s4" } },
+          { data: { source: "h3", target: "s6" } },
         ],
         style: [
           {
@@ -206,7 +253,7 @@
         minZoom: 0.5, // 最小缩放比例
         maxZoom: 2, // 最大缩放比例
       });
-      
+
       // 点击查看节点信息
       cy.on("tap", "node", function (event) {
         var node = event.target;
@@ -222,7 +269,7 @@
           </ul>
         `;
       });
-      
+
       function generateAlert() {
         var alertList = document.getElementById("alertList");
         var alertItem = document.createElement("li");
